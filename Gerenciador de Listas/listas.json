@@ -1,0 +1,52 @@
+[
+  {
+    "Nome": "Tarefas de Casa",
+    "Itens": [
+      {
+        "Texto": "Arrumar o quarto",
+        "Concluido": false,
+        "Nota": "Arrumar o quarto às 7:00"
+      },
+      {
+        "Texto": "Fazer a Comida",
+        "Concluido": false,
+        "Nota": "Fazer a comida às 9:00"
+      },
+      {
+        "Texto": "Limpar a Casa",
+        "Concluido": false,
+        "Nota": "Limpar a Casa às 14:00"
+      }
+    ]
+  },
+  {
+    "Nome": "Programação",
+    "Itens": [
+      {
+        "Texto": "Estudar C# no computador",
+        "Concluido": false,
+        "Nota": "Estudar sobre o .NET.Core"
+      },
+      {
+        "Texto": "Desenvolver banco de dados ",
+        "Concluido": false,
+        "Nota": "Desenvolver aplicações importantes com banco de dados "
+      }
+    ]
+  },
+  {
+    "Nome": "Fim de Semana",
+    "Itens": [
+      {
+        "Texto": "Sair com os amigos",
+        "Concluido": true,
+        "Nota": "Sair com os amigos aos sábados."
+      },
+      {
+        "Texto": "Passear para os pontos turísticos",
+        "Concluido": true,
+        "Nota": "Conhecer os mais belos pontos turísticos do mundo."
+      }
+    ]
+  }
+]
