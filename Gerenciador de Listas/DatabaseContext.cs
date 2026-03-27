@@ -1,91 +1,154 @@
 using System;
-using System.Data;
-using Microsoft.Data.Sqlite;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Encodings.Web;
+
+public class Item
+{
+    public string Texto { get; set; }
+    public bool Concluido { get; set; }
+    public string Nota { get; set; }
+}
+
+public class Categoria
+{
+    public string Nome { get; set; }
+    public List<Item> Itens { get; set; } = new List<Item>();
+}
 
 public class DatabaseContext
 {
-    private string connectionString = "Data Source=listas.db";
+    private string filePath = "listas.json";
+    private List<Categoria> categorias;
 
     public DatabaseContext()
     {
-        using (var connection = new SqliteConnection(connectionString))
+        CarregarDados();
+    }
+
+    private void CarregarDados()
+    {
+        if (File.Exists(filePath))
         {
-            connection.Open();
-            string sql = @"
-                CREATE TABLE IF NOT EXISTS Categorias (Id INTEGER PRIMARY KEY AUTOINCREMENT, Nome TEXT);
-                CREATE TABLE IF NOT EXISTS Itens (Id INTEGER PRIMARY KEY AUTOINCREMENT, CategoriaId INTEGER, Texto TEXT, Concluido BIT, Nota TEXT);";
-            using (var command = new SqliteCommand(sql, connection))
-                command.ExecuteNonQuery();
+            string json = File.ReadAllText(filePath);
+            categorias = JsonSerializer.Deserialize<List<Categoria>>(json) ?? new List<Categoria>();
+        }
+        else
+        {
+            categorias = new List<Categoria>();
         }
     }
 
-    // --- Métodos de Categorias (Janela 1) ---
-
-    public void AdicionarCategoria(string nome) => 
-        ExecutarNonQuery("INSERT INTO Categorias (Nome) VALUES (@nome)", new SqliteParameter("@nome", nome));
-    
-    public void RemoverCategoria(int id) => 
-        ExecutarNonQuery("DELETE FROM Categorias WHERE Id = @id; DELETE FROM Itens WHERE CategoriaId = @id;", new SqliteParameter("@id", id));
-    
-    public DataTable BuscarCategorias(string filtro = "")
+    private void SalvarDados()
     {
-        string sql = string.IsNullOrEmpty(filtro) ? "SELECT * FROM Categorias" : "SELECT * FROM Categorias WHERE Nome LIKE @filtro";
-        return ExecutarQuery(sql, new SqliteParameter("@filtro", $"%{filtro}%"));
+        var options = new JsonSerializerOptions 
+        { 
+            WriteIndented = true,
+            // Esta linha permite que acentos e cedilha apareçam normalmente no arquivo
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping 
+        };
+
+        string json = JsonSerializer.Serialize(categorias, options);
+        File.WriteAllText(filePath, json); // Corrigido de ReadAllText para WriteAllText
     }
 
-    // --- Métodos de Itens (Janela 2) ---
+    // --- Métodos de Categorias ---
 
-    public void AdicionarItem(int catId, string texto) => 
-        ExecutarNonQuery("INSERT INTO Itens (CategoriaId, Texto, Concluido, Nota) VALUES (@catId, @texto, 0, '')", new SqliteParameter("@catId", catId), new SqliteParameter("@texto", texto));
-    
-    public void AtualizarStatusItem(int id, bool concluido) => 
-        ExecutarNonQuery("UPDATE Itens SET Concluido = @c WHERE Id = @id", new SqliteParameter("@c", concluido ? 1 : 0), new SqliteParameter("@id", id));
-    
-    // NOVO MÉTODO DE EXCLUSÃO DE ITEM
-    public void RemoverItem(int itemId) =>
-        ExecutarNonQuery("DELETE FROM Itens WHERE Id = @id", new SqliteParameter("@id", itemId));
-
-    public DataTable BuscarItens(int catId, string filtro = "")
+    public void AdicionarCategoria(string nome)
     {
-        string sql = "SELECT * FROM Itens WHERE CategoriaId = @catId";
-        if (!string.IsNullOrEmpty(filtro)) sql += " AND Texto LIKE @filtro";
-        return ExecutarQuery(sql, new SqliteParameter("@catId", catId), new SqliteParameter("@filtro", $"%{filtro}%"));
-    }
-
-    // --- Métodos de Nota (Janela 3) ---
-
-    public void SalvarNota(int id, string nota) => 
-        ExecutarNonQuery("UPDATE Itens SET Nota = @n WHERE Id = @id", new SqliteParameter("@n", nota), new SqliteParameter("@id", id));
-
-    public string BuscarNotaPrivada(int itemId)
-    {
-        DataTable dt = ExecutarQuery("SELECT Nota FROM Itens WHERE Id = @id", new SqliteParameter("@id", itemId));
-        if (dt.Rows.Count > 0) return dt.Rows[0]["Nota"]?.ToString() ?? "";
-        return "";
-    }
-
-    // --- Motores de Execução ---
-
-    public void ExecutarNonQuery(string sql, params SqliteParameter[] parameters)
-    {
-        using var conn = new SqliteConnection(connectionString);
-        conn.Open();
-        using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddRange(parameters);
-        cmd.ExecuteNonQuery();
-    }
-
-    private DataTable ExecutarQuery(string sql, params SqliteParameter[] parameters)
-    {
-        DataTable dt = new DataTable();
-        using var conn = new SqliteConnection(connectionString);
-        conn.Open();
-        using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddRange(parameters);
-        using (var reader = cmd.ExecuteReader())
+        if (!categorias.Any(c => c.Nome == nome))
         {
-            dt.Load(reader);
+            categorias.Add(new Categoria { Nome = nome });
+            SalvarDados();
         }
-        return dt;
+    }
+
+    public void RemoverCategoria(string nome)
+    {
+        var cat = categorias.FirstOrDefault(c => c.Nome == nome);
+        if (cat != null)
+        {
+            categorias.Remove(cat);
+            SalvarDados();
+        }
+    }
+
+    public void AtualizarNomeCategoria(string nomeAntigo, string novoNome)
+    {
+        var cat = categorias.FirstOrDefault(c => c.Nome == nomeAntigo);
+        if (cat != null)
+        {
+            cat.Nome = novoNome;
+            SalvarDados();
+        }
+    }
+
+    public List<Categoria> BuscarCategorias(string filtro = "")
+    {
+        if (string.IsNullOrEmpty(filtro)) return categorias;
+        return categorias.Where(c => c.Nome.Contains(filtro, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    // --- Métodos de Itens ---
+
+    public List<Item> BuscarItens(string catNome, string filtro = "")
+    {
+        var cat = categorias.FirstOrDefault(c => c.Nome == catNome);
+        if (cat == null) return new List<Item>();
+
+        if (string.IsNullOrEmpty(filtro)) return cat.Itens;
+        return cat.Itens.Where(i => i.Texto.Contains(filtro, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    public void AdicionarItem(string catNome, string texto)
+    {
+        var cat = categorias.FirstOrDefault(c => c.Nome == catNome);
+        if (cat != null)
+        {
+            cat.Itens.Add(new Item { Texto = texto, Concluido = false, Nota = "" });
+            SalvarDados();
+        }
+    }
+
+    public void AtualizarItem(string catNome, string textoOriginal, string novoTexto, bool concluido, string nota)
+    {
+        var cat = categorias.FirstOrDefault(c => c.Nome == catNome);
+        var item = cat?.Itens.FirstOrDefault(i => i.Texto == textoOriginal);
+        if (item != null)
+        {
+            item.Texto = novoTexto;
+            item.Concluido = concluido;
+            item.Nota = nota;
+            SalvarDados();
+        }
+    }
+
+    public void RemoverItem(string catNome, string texto)
+    {
+        var cat = categorias.FirstOrDefault(c => c.Nome == catNome);
+        var item = cat?.Itens.FirstOrDefault(i => i.Texto == texto);
+        if (item != null)
+        {
+            cat.Itens.Remove(item);
+            SalvarDados();
+        }
+    }
+
+    public string BuscarNotaPrivada(string catNome, string texto)
+    {
+        var item = categorias.FirstOrDefault(c => c.Nome == catNome)?.Itens.FirstOrDefault(i => i.Texto == texto);
+        return item?.Nota ?? "";
+    }
+
+    public void SalvarNota(string catNome, string texto, string nota)
+    {
+        var item = categorias.FirstOrDefault(c => c.Nome == catNome)?.Itens.FirstOrDefault(i => i.Texto == texto);
+        if (item != null)
+        {
+            item.Nota = nota;
+            SalvarDados();
+        }
     }
 }
