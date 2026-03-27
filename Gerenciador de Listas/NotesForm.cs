@@ -5,18 +5,20 @@ using System.Windows.Forms;
 public class NotesForm : Form
 {
     private DatabaseContext db = new DatabaseContext();
-    private int itemId;
+    private string catNome;
+    private string itemTexto;
     private TextBox txtNota = new TextBox { Multiline = true, Dock = DockStyle.Fill, BackColor = Color.LightCyan, Font = new Font("Consolas", 11) };
 
-    public NotesForm(int id, string nomeItem)
+    public NotesForm(string categoriaLista, string nomeItem)
     {
-        this.itemId = id;
+        this.catNome = categoriaLista;
+        this.itemTexto = nomeItem;
+        
         this.Text = "Anotação: " + nomeItem;
         this.Size = new Size(350, 400);
         this.StartPosition = FormStartPosition.CenterParent;
 
-        // Carrega a nota já existente no banco
-        txtNota.Text = db.BuscarNotaPrivada(itemId);
+        txtNota.Text = db.BuscarNotaPrivada(catNome, itemTexto);
 
         Button btnSalvar = new Button { 
             Text = "SALVAR ANOTAÇÃO", 
@@ -29,7 +31,7 @@ public class NotesForm : Form
         };
 
         btnSalvar.Click += (s, e) => { 
-            db.SalvarNota(itemId, txtNota.Text); 
+            db.SalvarNota(catNome, itemTexto, txtNota.Text); 
             MessageBox.Show("Nota salva com sucesso!");
             this.Close(); 
         };
