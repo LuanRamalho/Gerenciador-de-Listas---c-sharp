@@ -1,8 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using System.Data;
-using Microsoft.Data.Sqlite;
 
 public class MainForm : Form
 {
@@ -35,29 +34,28 @@ public class MainForm : Form
     private void CarregarCategorias(string filtro = "")
     {
         panelCategorias.Controls.Clear();
-        DataTable dt = db.BuscarCategorias(filtro);
-        foreach (DataRow row in dt.Rows)
+        List<Categoria> lista = db.BuscarCategorias(filtro);
+        
+        foreach (var cat in lista)
         {
-            int id = Convert.ToInt32(row["Id"]);
-            string nome = row["Nome"]?.ToString() ?? "Sem Nome";
+            string nome = cat.Nome;
 
             Panel rowPanel = new Panel { Size = new Size(400, 45), Margin = new Padding(5), BackColor = Color.MediumPurple };
             LinkLabel lbl = new LinkLabel { Text = nome, Location = new Point(10, 12), Font = new Font("Segoe UI", 11, FontStyle.Bold), LinkColor = Color.White, AutoSize = true, LinkBehavior = LinkBehavior.HoverUnderline };
             
-            lbl.Click += (s, e) => new ItemsForm(id, nome).Show();
+            lbl.Click += (s, e) => new ItemsForm(nome).Show();
 
-            // Botão Editar
             Button btnEdit = new Button { Text = "Editar", Size = new Size(60, 25), Location = new Point(265, 10), BackColor = Color.DodgerBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
             btnEdit.Click += (s, e) => {
                 string novoNome = Microsoft.VisualBasic.Interaction.InputBox("Novo nome da lista:", "Editar", nome);
                 if (!string.IsNullOrWhiteSpace(novoNome)) {
-                    db.ExecutarNonQuery("UPDATE Categorias SET Nome = @n WHERE Id = @id", new SqliteParameter("@n", novoNome), new SqliteParameter("@id", id));
+                    db.AtualizarNomeCategoria(nome, novoNome);
                     CarregarCategorias();
                 }
             };
 
             Button btnDel = new Button { Text = "Excluir", Size = new Size(60, 25), Location = new Point(330, 10), BackColor = Color.Crimson, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-            btnDel.Click += (s, e) => { db.RemoverCategoria(id); CarregarCategorias(); };
+            btnDel.Click += (s, e) => { db.RemoverCategoria(nome); CarregarCategorias(); };
 
             rowPanel.Controls.AddRange(new Control[] { lbl, btnEdit, btnDel });
             panelCategorias.Controls.Add(rowPanel);
